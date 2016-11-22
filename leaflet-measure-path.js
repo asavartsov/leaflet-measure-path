@@ -209,6 +209,7 @@
             if (!this._map || this._measurementLayer) return this;
 
             this._measurementOptions = L.extend({
+                distanceOffset: 10,
                 showOnHover: false,
                 minPixelDistance: 30,
                 showDistances: true,
@@ -289,9 +290,13 @@
                     pixelDist = p1.distanceTo(p2);
 
                     if (pixelDist >= options.minPixelDistance) {
+                        var rotation =  this._getRotation(ll1, ll2);
+                        var xOffset = Math.sin(rotation) * options.distanceOffset;
+                        var yOffset = Math.cos(rotation) * options.distanceOffset;
+
                         L.marker.measurement(
-                            this._map.layerPointToLatLng([(p1.x + p2.x) / 2, (p1.y + p2.y) / 2 + 10]),
-                            formatter(dist), options.lang.segmentLength, this._getRotation(ll1, ll2), options)
+                            this._map.layerPointToLatLng([(p1.x + p2.x) / 2 - xOffset, (p1.y + p2.y) / 2 + yOffset]),
+                            formatter(dist), options.lang.segmentLength, rotation, options)
                             .addTo(this._measurementLayer);
                     }
                 }
