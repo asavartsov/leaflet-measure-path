@@ -259,14 +259,10 @@
         formatDistance: formatDistance,
         formatArea: formatArea,
 
-        updateMeasurements: function() {
-            if (!this._measurementLayer) return;
-
-            var latLngs = this.getLatLngs(),
-                isPolygon = this instanceof L.Polygon,
+        updateMeasurementsForPart: function(latLngs, formatter) {
+            var isPolygon = this instanceof L.Polygon,
                 options = this._measurementOptions,
                 totalDist = 0,
-                formatter,
                 ll1,
                 ll2,
                 p1,
@@ -280,11 +276,7 @@
                 latLngs = latLngs[0];
             }
 
-            this._measurementLayer.clearLayers();
-
-            if (this._measurementOptions.showDistances && latLngs.length > 1) {
-                formatter = this._measurementOptions.formatDistance || L.bind(this.formatDistance, this);
-
+            if (options.showDistances && latLngs.length > 1) {
                 for (var i = 1, len = latLngs.length; (isPolygon && i <= len) || i < len; i++) {
                     ll1 = latLngs[i - 1];
                     ll2 = latLngs[i % len];
@@ -298,7 +290,7 @@
 
                     if (pixelDist >= options.minPixelDistance) {
                         L.marker.measurement(
-                            this._map.layerPointToLatLng([(p1.x + p2.x) / 2, (p1.y + p2.y) / 2]), 
+                            this._map.layerPointToLatLng([(p1.x + p2.x) / 2, (p1.y + p2.y) / 2 + 10]),
                             formatter(dist), options.lang.segmentLength, this._getRotation(ll1, ll2), options)
                             .addTo(this._measurementLayer);
                     }
@@ -312,10 +304,41 @@
             }
 
             if (isPolygon && options.showArea && latLngs.length > 2) {
+                this._totalArea += ringArea(latLngs);
+            }
+        },
+
+        updateMeasurements: function() {
+            if (!this._measurementLayer) return;
+
+            this._measurementLayer.clearLayers();
+            this._totalArea = 0;
+
+            var latLngs = this.getLatLngs(),
+                formatter = this._measurementOptions.formatDistance || L.bind(this.formatDistance, this),
+                options = this._measurementOptions,
+                depth = 0,
+                testValue = latLngs;
+
+            while (testValue && testValue.length && L.Util.isArray(testValue[0])) {
+                testValue = testValue[0];
+                depth++;
+            }
+
+            if (depth < 2) {
+                this.updateMeasurementsForPart(latLngs, formatter);
+            }
+            else {
+                for (var part in latLngs) {
+                    this.updateMeasurementsForPart(latLngs[part], formatter);
+                }
+            }
+
+            // Show total area for polygons
+            if (this._totalArea) {
                 formatter = options.formatArea || L.bind(this.formatArea, this);
-                var area = ringArea(latLngs);
                 L.marker.measurement(this.getBounds().getCenter(),
-                    formatter(area), options.lang.totalArea, 0, options)
+                    formatter(this._totalArea), options.lang.totalArea, 0, options)
                     .addTo(this._measurementLayer);
             }
         },
